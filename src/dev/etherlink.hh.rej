@@ -1,0 +1,16 @@
+--- etherlink.hh
++++ etherlink.hh
+@@ -82,6 +82,13 @@
+         Tick releaseTick;
+         double niTicksPerByte;
+         Tick niDelay;
++        Tick latestTimeStamp;
++        // these are bw and latency break points (packet sizes)
++        int br0, br1;
++        // bw coefficient corresponding to break points
++        float bw0, bw1, bw2;
++        // latency coefficient
++        float lt0, lt1, lt2;
+ 
+       protected:
+         /*

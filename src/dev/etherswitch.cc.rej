@@ -1,0 +1,11 @@
+--- etherswitch.cc
++++ etherswitch.cc
+@@ -190,7 +190,7 @@
+                                               linkNum, ticksPerByte,
+                                               etherSwitch.params()->delay,
+                                               etherSwitch.params()->delay_var,
+-                                              etherSwitch.params()->dump, 1);
++                                              etherSwitch.params()->dump);
+             link->setTxInt(itr1);
+             link->setRxInt(itr2);
+             std::pair<Interface*, Interface*> intPair

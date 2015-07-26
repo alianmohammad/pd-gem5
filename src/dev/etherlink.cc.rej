@@ -1,0 +1,27 @@
+--- etherlink.cc
++++ etherlink.cc
+@@ -186,7 +195,23 @@
+             // nic Timing params.
+             // We have already applied nic transmission delay at transmit
+             // function, add nic propagation delay here
+-            time_stamp = curTick() + niDelay;
++            Tick ni_prop_delay = niDelayFunction();
++
++            // To make sure that we don't reorder packets after applying varibale
++            // propagation delay for each packet, we utilize "latestTimeStamp"
++            // variable to serialize outgoing packets from ni.
++            // Also, we make sure that the time gap between each two outgoing
++            // packets is at least pkt_size/ni_bw
++            time_stamp = curTick() + ni_prop_delay;
++            if (time_stamp < latestTimeStamp) {
++                Tick ni_trans_delay = (Tick)ceil(((double)packet->length *
++                  niTicksPerByteFunction()) + 1.0);
++                time_stamp = latestTimeStamp + ni_trans_delay;
++                DPRINTF(Ethernet, "time_stamp < latestTimeStamp\n");
++            }
++            latestTimeStamp = time_stamp;
++            DPRINTF(Ethernet, "time_stamp=%lu, ni_prop_delay=%lu\n",
++                time_stamp, ni_prop_delay);
+ 
+             // Link Timing params.
+             // Add link transmission and propagation delay to time_stamp

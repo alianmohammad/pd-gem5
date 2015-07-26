@@ -1,0 +1,134 @@
+--- ethertap.cc
++++ ethertap.cc
+@@ -98,51 +99,118 @@
+     ~TapListener() { if (event) delete event; }
+ 
+     void accept();
+-    void listen();
++    void listen(bool flag);
+ };
+ 
+ void
+-TapListener::listen()
++TapListener::listen(bool flag)
+ {
+-    while (!listener.listen(port, true)) {
+-        DPRINTF(Ethernet, "TapListener(listen): Can't bind port %d\n", port);
+-        port++;
++    //if this is the first instance of switch tap then:
++    //we should create a socket, otherwise we don't need to create a new socket
++    if (flag) {
++        while (!listener.listenTap(port, true)) {
++           DPRINTF(Ethernet, "TapListener(listen): Can't bind port %d\n", port);
++           port++;
++        }
++        struct ifaddrs * ifAddrStruct=NULL;
++        struct ifaddrs * ifa=NULL;
++        void * tmpAddrPtr=NULL;
++        getifaddrs(&ifAddrStruct);
++
++        //print the port and ip information of EthrTap
++        for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
++           if (!ifa->ifa_addr)
++              continue;
++           //check if it is a valid IP4 Address
++           if (ifa->ifa_addr->sa_family == AF_INET) {
++             tmpAddrPtr=&((struct sockaddr_in *)ifa->ifa_addr)->sin_addr;
++             char addressBuffer[INET_ADDRSTRLEN];
++             inet_ntop(AF_INET, tmpAddrPtr, addressBuffer, INET_ADDRSTRLEN);
++             if (!strcmp(ifa->ifa_name, "eth0")){
++                 setbuf(stdout, NULL);
++                 ccprintf(cerr, "Listening for tap connection on %s %s %d\n",
++                 ifa->ifa_name, addressBuffer, port);
++                 fflush(stdout);
++             }
++           }
++        }
++        if (ifAddrStruct!=NULL)
++            freeifaddrs(ifAddrStruct);
+     }
+ 
+-    ccprintf(cerr, "Listening for tap connection on port %d\n", port);
+-    event = new Event(this, listener.getfd(), POLLIN|POLLERR);
++    event = new Event(this, listener.getfd_static(), POLLIN|POLLERR);
+     pollQueue.schedule(event);
+ }
+ 
+ void
+ TapListener::accept()
+ {
++    if (tap->isattached()) {
++        DPRINTF(Ethernet, "EtherTap already attached\n");
++        return;
++    }
+     // As a consequence of being called from the PollQueue, we might
+     // have been called from a different thread. Migrate to "our"
+     // thread.
+     EventQueue::ScopedMigration migrate(tap->eventQueue());
+ 
+-    if (!listener.islistening())
++    if (!listener.anyislistening())
+         panic("TapListener(accept): cannot accept if we're not listening!");
+ 
+-    int sfd = listener.accept(true);
++    int sfd = listener.acceptTap(true);
+     if (sfd != -1)
+         tap->attach(sfd);
+ }
+ 
+ /**
+  */
++class TapConnector
++{
++  protected:
++    ConnectSocket connector;
++    EtherTap *tap;
++    int port;
++    const char *ip;
++
++  public:
++    TapConnector(EtherTap *t, int p, const char *ip_)
++        : tap(t), port(p), ip(ip_) {}
++    ~TapConnector() { }
++
++    void connect();
++};
++
++void
++TapConnector::connect()
++{
++    //connect to the switch tap device which is listening for connections
++    int sfd = connector.connect(port, ip, true);
++    if (sfd != -1)
++        tap->attach(sfd);
++}
++/**
++ */
+ EtherTap::EtherTap(const Params *p)
+     : EtherObject(p), socket(-1), buflen(p->bufsz), dump(p->dump),
+-      interface(NULL), pollRate(p->poll_rate), txEvent(this), tapInEvent(this)
+-
++      interface(NULL), pollRate(p->poll_rate), txEvent(this), tapInEvent(this),
++      attached(false)
+ {
+     if (ListenSocket::allDisabled())
+         fatal("All listeners are disabled! EtherTap can't work!");
+ 
+     buffer = new char[buflen];
+-    listener = new TapListener(this, p->port);
+-    listener->listen();
++    static bool flag = true;
++    //if this is a tap connection in switch
++    if (p->server) {
++        listener = new TapListener(this, p->port);
++        listener->listen(flag);
++        flag = false;
++    }
++    //if this is a tap connection in nodes
++    else {
++        connector = new TapConnector(this, p->port, p->server_ip.c_str());
++        connector->connect();
++    }
+     interface = new EtherTapInt(name() + ".interface", this);
+ }
+ 

@@ -1,0 +1,29 @@
+--- sw.py
++++ sw.py
+@@ -22,21 +22,21 @@
+         # timing parameters
+         switch = EtherSwitch(port_count = options.num_nodes,
+                              delay = options.sw_delay)
+-        # instantiate etherlinks in "pd-gem5 connector" mode (mode = 1) to
++        # instantiate etherlinks in "sw connector" mode (mode = 1) to
+         # connect switch box ports to ethertap objects
+-        switch.etherlink0 = EtherLink(mode = 1,
++        switch.etherlink0 = EtherLink(mode = 3,
+                                       delay = options.etherlink_delay,
+                                       speed = options.etherlink_speed,
+                                       ni_speed = options.sw_speed)
+-        switch.etherlink1 = EtherLink(mode = 1,
++        switch.etherlink1 = EtherLink(mode = 3,
+                                       delay = options.etherlink_delay,
+                                       speed = options.etherlink_speed,
+                                       ni_speed = options.sw_speed)
+-        switch.etherlink2 = EtherLink(mode = 1,
++        switch.etherlink2 = EtherLink(mode = 3,
+                                       delay = options.etherlink_delay,
+                                       speed = options.etherlink_speed,
+                                       ni_speed = options.sw_speed)
+-        switch.etherlink3 = EtherLink(mode = 1,
++        switch.etherlink3 = EtherLink(mode = 3,
+                                       delay = options.etherlink_delay,
+                                       speed = options.etherlink_speed,
+                                       ni_speed = options.sw_speed)

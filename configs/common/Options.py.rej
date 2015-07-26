@@ -1,0 +1,16 @@
+--- Options.py
++++ Options.py
+@@ -97,6 +97,13 @@
+     parser.add_option("--tap-first-delay", type="string", default='1ms')
+     parser.add_option("--workload-disk-image", action="store", type="string", default=None,
+                       help="Path to the disk image to use.")
++    parser.add_option("--nic-rate-th-freq",type="long",default=50)  # threshold for nic governor (Mbps)
++    parser.add_option("--nic-rate-cal-interval", type="string", default='100us') #for rate calc
++    parser.add_option("--enable-rate-calc", type="string", default='False') #enable or disable rate calc, by default it's disabled
++    parser.add_option("--disable-freq-change-interval", type="string", default='5ms')
++    parser.add_option("--nic-rate-th-low-freq",type="long",default=10)  # low threshold for nic governor (Mbps)
++    parser.add_option("--nic-rate-th-low-cnt",type="int",default=5)  # how many times to see arrival rate above low threshold before
++        # boosting frequency
+     # system options
+     parser.add_option("--list-cpu-types",
+                       action="callback", callback=_listCpuTypes,

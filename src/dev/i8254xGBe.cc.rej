@@ -1,0 +1,90 @@
+--- i8254xGBe.cc
++++ i8254xGBe.cc
+@@ -61,9 +62,15 @@
+     : EtherDevice(p), etherInt(NULL),  drainManager(NULL),
+       rxFifo(p->rx_fifo_size), txFifo(p->tx_fifo_size), rxTick(false),
+       txTick(false), txFifoTick(false), rxDmaPacket(false), pktOffset(0),
++      arrivalRate(0), rateTh(p->nic_rate_th_freq),
++      rateTimerInterval(p->nic_rate_cal_interval), rxBitCounter(0),
++      enable_rate_calc(p->enable_rate_calc), first_arrival(true), disable_governor(false),
++      disable_freq_change_interval(p->disable_freq_change_interval),
++      rateAboveLowThCounter(0), rate_above_th(p->rate_above_th), rateTh_low(p->nic_rate_th_low_freq),
++      rateCalcEvent(this), enableGovernorEvent(this),
+       fetchDelay(p->fetch_delay), wbDelay(p->wb_delay), 
+       fetchCompDelay(p->fetch_comp_delay), wbCompDelay(p->wb_comp_delay), 
+-      rxWriteDelay(p->rx_write_delay), txReadDelay(p->tx_read_delay),  
++      rxWriteDelay(p->rx_write_delay), txReadDelay(p->tx_read_delay),
+       rdtrEvent(this), radvEvent(this),
+       tadvEvent(this), tidvEvent(this), tickEvent(this), interEvent(this),
+       rxDescCache(this, name()+".RxDesc", p->rx_desc_cache_size),
+@@ -83,7 +90,8 @@
+     regs.sts.lu(1); // link up
+     regs.eecd.fwe(1);
+     regs.eecd.ee_type(1);
+-    regs.imr = 0;
++    //regs.imr = 0;
++    regs.imr = IT_PDGEM5; // lokeshjindal15
+     regs.iam = 0;
+     regs.rxdctl.gran(1);
+     regs.rxdctl.wthresh(1);
+@@ -217,6 +225,7 @@
+         }
+         if (regs.ctrl_ext.iame() && regs.icr.int_assert())
+             regs.imr &= ~regs.iam;
++            regs.imr |= IT_PDGEM5; // lokeshjindal15
+         chkInterrupt();
+         break;
+       case REG_EICR:
+@@ -493,6 +502,7 @@
+                 regs.icr(), regs.imr, regs.iam, regs.ctrl_ext.iame());
+         if (regs.ctrl_ext.iame())
+             regs.imr &= ~regs.iam;
++            regs.imr |= IT_PDGEM5; // lokeshjindal15
+         regs.icr = ~bits(val,30,0) & regs.icr();
+         chkInterrupt();
+         break;
+@@ -505,10 +515,16 @@
+         break;
+       case REG_IMS:
+         regs.imr |= val;
++        regs.imr |= IT_PDGEM5; // lokeshjindal15
++        DPRINTF(Ethernet, "Writing IMS/IMR. ICR=%#x IMR=%#x IAM=%#x IAME=%d\n",
++                regs.icr(), regs.imr, regs.iam, regs.ctrl_ext.iame());
+         chkInterrupt();
+         break;
+       case REG_IMC:
+         regs.imr &= ~val;
++        regs.imr |= IT_PDGEM5; // lokeshjindal15
++        DPRINTF(Ethernet, "Writing IMC/IMR. ICR=%#x IMR=%#x IAM=%#x IAME=%d\n",
++                regs.icr(), regs.imr, regs.iam, regs.ctrl_ext.iame());
+         chkInterrupt();
+         break;
+       case REG_IAM:
+@@ -2219,6 +2235,27 @@
+     rxPackets++;
+ 
+     DPRINTF(Ethernet, "RxFIFO: Receiving pcakte from wire\n");
++    if (first_arrival && enable_rate_calc){
++        first_arrival = false;
++        schedule(rateCalcEvent, curTick() + rateTimerInterval);
++    }
++    rxBitCounter += pkt->length * 8;
++    DPRINTF(EthernetTiming, "FREQ: arrival rate=%lu,threshold=%lu\n",arrivalRate,rateTh);
++
++    if ( arrivalRate > rateTh_low)
++        rateAboveLowThCounter ++;
++    else
++        rateAboveLowThCounter = 0;
++
++    if ( ((arrivalRate > rateTh) || (rateAboveLowThCounter > rate_above_th)) && (disable_governor==false) )
++    {
++        DPRINTF(EthernetTiming, "FREQ: High pkt arrival rate, boost frequency!, arrival rate=%lu,threshold=%lu\n",arrivalRate,rateTh);
++        printf("FREQ: High pkt arrival rate, boost frequency!, arrival rate=%lu,threshold=%lu\n",arrivalRate,rateTh);
++        postInterrupt(IT_PDGEM5); // lokeshjindal15
++        disable_governor = true; //m.alian disable governor for disable_freq_change_interval ticks
++        schedule(enableGovernorEvent, curTick() + disable_freq_change_interval);
++    }
++
+     anBegin("RXQ", "Wire Recv");
+ 
+ 

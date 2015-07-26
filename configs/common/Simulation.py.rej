@@ -1,0 +1,30 @@
+--- Simulation.py
++++ Simulation.py
+@@ -294,11 +294,18 @@
+       exit_cause = exit_event.getCause()
+       total_tick_simulated = sync_quantum
+       num_checkpoints = 0
++      num_ckpt_count = 0
+       max_checkpoints = options.max_checkpoints
+       s.send("R")
+       data = s.recv(BUFFER_SIZE)
+       while total_tick_simulated <= maxreltick and\
+-        (exit_cause == "simulate() limit reached" or exit_cause == "checkpoint"):
++        (exit_cause == "simulate() limit reached" or exit_cause == "checkpoint" or\
++                exit_cause == "m5_count_ckpt"):
++        if exit_cause == "m5_count_ckpt":
++          num_ckpt_count += 1
++          if num_ckpt_count == max_checkpoints:
++            exit_cause = "maximum %d m5_count_ckpt dropped" % num_ckpt_count
++            break
+         if exit_cause == "checkpoint":
+           m5.simulate(pre_tick + sync_quantum - m5.curTick())
+           # send "C" to barrier to notify that we should take a checkpoint at
+@@ -306,7 +313,6 @@
+           s.send("C")
+         else:
+           s.send("R")
+-
+         data = s.recv(BUFFER_SIZE)
+         pre_tick = m5.curTick()
+         exit_event = m5.simulate(sync_quantum)
