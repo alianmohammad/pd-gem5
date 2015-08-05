@@ -129,21 +129,20 @@ def perpare_dir():
     os.system("rm -rf %s > /dev/null" % (run_dir))
 
     # make new directories
-    os.system("mkdir %s > /dev/null 2>&1" %(params['pd-gem5_dir'] + '/rundir'))
-    os.system("mkdir %s > /dev/null 2>&1" %(run_dir))
+    os.system("mkdir -p %s > /dev/null 2>&1" %(run_dir))
     # make sure that checkpoint directory exists
-    os.system("mkdir %s > /dev/null 2>&1" %(params['pd-gem5_dir'] +'/ckptdir/'))
+    os.system("mkdir -p %s > /dev/null 2>&1" %(params['pd-gem5_dir'] +'/ckptdir/'))
     rel_path = params['ckpt_dir'].split('/')
     ckpt_dir_partial_path = params['pd-gem5_dir'] + '/ckptdir/'
     for dirs in rel_path:
-        os.system("mkdir %s > /dev/null 2>&1" %(ckpt_dir_partial_path + dirs))
+        os.system("mkdir -p %s > /dev/null 2>&1" %(ckpt_dir_partial_path + dirs))
         ckpt_dir_partial_path += dirs + '/'
     # make run directory for each node, make sure that checkpoint dir exists for
     # each node
     for machine in machines:
         (phy, sim) = machine.split(':')
-        os.system("mkdir %s/%s > /dev/null 2>&1" %(run_dir, sim))
-        os.system("mkdir %s/%s > /dev/null 2>&1" %((params['pd-gem5_dir'] +\
+        os.system("mkdir -p %s/%s > /dev/null 2>&1" %(run_dir, sim))
+        os.system("mkdir -p %s/%s > /dev/null 2>&1" %((params['pd-gem5_dir'] +\
                 '/ckptdir/' + params['ckpt_dir'] + '/', sim)))
 
 # this function prepare gem5 commandline for each simualted node
@@ -180,12 +179,21 @@ def prepare_cmd(sims):
             cmd += '--quad '
         if params['script_dir'] != '0':
             if len(sims.split(',')) == 4:
-                cmd += '--script=' + script_dir + '/' + sims.split(',')[0] + '.sh '\
-                    + '--script1=' + script_dir + '/' + sims.split(',')[1] + '.sh '\
-                    + '--script2=' + script_dir + '/' + sims.split(',')[2] + '.sh '\
-                    + '--script3=' + script_dir + '/' + sims.split(',')[3] + '.sh '
+                if sims.split(',')[0] != 'tux0':
+                    cmd += '--script=' + script_dir + '/' + sims.split(',')[0] + '.sh '\
+                        + '--script1=' + script_dir + '/' + sims.split(',')[1] + '.sh '\
+                        + '--script2=' + script_dir + '/' + sims.split(',')[2] + '.sh '\
+                        + '--script3=' + script_dir + '/' + sims.split(',')[3] + '.sh '
+                else:
+                    cmd += '--script=' + params['script_tux0'] + ' '\
+                        + '--script1=' + script_dir + '/' + sims.split(',')[1] + '.sh '\
+                        + '--script2=' + script_dir + '/' + sims.split(',')[2] + '.sh '\
+                        + '--script3=' + script_dir + '/' + sims.split(',')[3] + '.sh '
             else:
-                cmd += '--script=' + script_dir + '/' + sims.split(',')[0] + '.sh '
+                if sims.split(',')[0] != 'tux0':
+                    cmd += '--script=' + script_dir + '/' + sims.split(',')[0] + '.sh '
+                else:
+                    cmd += '--script=' + params['script_tux0'] + '.sh '
     # add common options for both switch and nodes
     cmd += '--checkpoint-dir=' + ckpt_dir + '/' + sims + ' '\
            + params['other_command_line_options'] + ' '\
@@ -326,7 +334,7 @@ for i in configCont:
 print "preparing to start pd-gem5"
 print "configuration file = " + params['run_name']
 
-run_dir = params['pd-gem5_dir'] + '/rundir/' + params['run_name']
+run_dir = params['run_dir'] + '/' + params['run_name']
 ckpt_dir = params['pd-gem5_dir'] + '/ckptdir/' + params['ckpt_dir']
 script_dir = params['pd-gem5_dir'] + '/scriptdir/' + params['script_dir']
 machines = params['machine_names'].split(' ')
